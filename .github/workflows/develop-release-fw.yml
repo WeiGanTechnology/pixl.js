@@ -1,0 +1,145 @@
+name: develop-release-fw
+
+on:
+  push:
+    branches: ["develop_release"]
+  workflow_dispatch:
+    inputs:
+      fw_version:
+        description: "Firmware version (e.g. 2.16.1)"
+        required: false
+        default: "2.16.1"
+
+concurrency:
+  group: develop-release-fw-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        board: ["LCD", "OLED"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container: solosky/nrf52-sdk:latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'true'
+        fetch-depth: 0
+
+    - name: Change Owner of Container Working Directory
+      run: chown root:root .
+
+    - name: Configure git for container
+      run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+    - name: Resolve firmware version
+      shell: bash
+      run: |
+        set -eo pipefail
+        # develop_release uses fixed semantic versioning (default 2.16.1).
+        # Bump only via workflow_dispatch fw_version input; push does not use tags.
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.fw_version }}" ]; then
+          FW_VERSION="${{ inputs.fw_version }}"
+        else
+          FW_VERSION="2.16.1"
+        fi
+        if ! [[ "$FW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Invalid firmware version: $FW_VERSION (expected major.minor.patch)" >&2
+          exit 1
+        fi
+        IFS=. read -r major minor patch <<< "$FW_VERSION"
+        APP_VERSION=$((major * 10000 + minor * 100 + patch))
+        echo "FW_VERSION=$FW_VERSION" >> "$GITHUB_ENV"
+        echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+        echo "Resolved firmware version: $FW_VERSION (APP_VERSION=$APP_VERSION)"
+
+    - name: Generate version header
+      shell: bash
+      run: |
+        set -eo pipefail
+        cd fw
+        export WORKFLOW_BRANCH_OR_TAG=develop_release
+        FW_VERSION="$FW_VERSION" make -C application version RELEASE=1 APP_VERSION="$APP_VERSION" BOARD=${{ matrix.board }}
+
+    - name: Build bootloader
+      shell: bash
+      run: |
+        set -eo pipefail
+        cd fw
+        if [ "${{ matrix.board }}" = "LCD" ]; then
+          make -j$(nproc) bl RELEASE=1 BOARD=${{ matrix.board }}
+        else
+          make -j$(nproc) bl RELEASE=1 BOARD=${{ matrix.board }} OLED_TYPE=sh1106
+        fi
+
+    - name: Build application
+      shell: bash
+      run: |
+        set -eo pipefail
+        cd fw
+        export WORKFLOW_BRANCH_OR_TAG=develop_release
+        FW_VERSION="$FW_VERSION" make -j$(nproc) -C application pixljs RELEASE=1 APP_VERSION="$APP_VERSION" BOARD=${{ matrix.board }} 2>&1 | tee ../app-build-${{ matrix.board }}.log; exit ${PIPESTATUS[0]}
+
+    - name: Package firmware
+      shell: bash
+      run: |
+        set -eo pipefail
+        cd fw
+        make -C application full RELEASE=1 APP_VERSION="$APP_VERSION" BOARD=${{ matrix.board }}
+        make -C application ota RELEASE=1 APP_VERSION="$APP_VERSION" BOARD=${{ matrix.board }}
+
+    - name: Upload build log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: develop-release-build-log-${{ matrix.board }}-${{ github.run_id }}
+        if-no-files-found: ignore
+        path: |
+          app-build-${{ matrix.board }}.log
+          fw/_build/*.txt
+          fw/_build/*.map
+
+    - name: Develop release build note
+      run: |
+        {
+          echo "## develop_release firmware (${{ matrix.board }}) v${FW_VERSION}"
+          echo
+          echo "Standard pixl.js **BOARD=${{ matrix.board }}** with three-way thumbwheel (not AmiiboTool/KEYPAD)."
+          echo "**Game** and **Video Player** are not shown on the main menu (\`APP_GAME_ENABLE\` / \`APP_PLAYER_ENABLE\` commented in board headers)."
+          echo "Main menu: Amiibo, AmiiboDB, AmiiboLink, Chameleon, BLE, and Settings."
+          echo "Artifacts only (no GitHub Release page). Version **${FW_VERSION}** (APP_VERSION=${APP_VERSION}); bump via workflow_dispatch \`fw_version\`."
+          echo "Download artifact **pixljs_fw_${{ matrix.board }}-v${FW_VERSION}** and flash **pixljs_all.hex** via wired method for first install."
+          echo "OTA package: **pixjs_ota_v${FW_VERSION}.zip** (DFU application-version ${APP_VERSION})."
+          echo "This is **not** the upstream main official release; same APP_VERSION as main 2.16.1 may block OTA from official packages."
+          echo "LCD and OLED packages are **not** interchangeable."
+        } >> "${GITHUB_STEP_SUMMARY}"
+
+    - name: copy artifact
+      shell: bash
+      run: |
+        set -eo pipefail
+        mv fw/_build/bootloader.hex .
+        mv fw/_build/pixljs.hex .
+        mv fw/_build/pixljs_all.hex .
+        mv "fw/_build/pixjs_ota_v${APP_VERSION}.zip" "./pixjs_ota_v${FW_VERSION}.zip"
+        mv fw/docs/fw_readme.txt .
+        mv fw/scripts/fw_update.bat .
+
+    - name: upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: pixljs_fw_${{ matrix.board }}-v${{ env.FW_VERSION }}
+        path: |
+          bootloader.hex
+          pixljs.hex
+          pixljs_all.hex
+          pixjs_ota_v${{ env.FW_VERSION }}.zip
+          fw_readme.txt
+          fw_update.bat
