@@ -149,7 +149,7 @@ void app_amiidb_on_kill(mini_app_inst_t *p_app_inst) {
 void app_amiidb_on_event(mini_app_inst_t *p_app_inst, mini_app_event_t *p_event) {}
 
 const mini_app_t app_amiidb_info = {.id = MINI_APP_ID_AMIIDB,
-                                    .name = "Amiibo数据库",
+                                    .name = "数据库",
                                     .name_i18n_key = _L_APP_AMIIDB,
                                     .icon = 0xe0ba,
                                     .sys = false,

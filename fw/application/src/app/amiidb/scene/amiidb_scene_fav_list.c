@@ -110,7 +110,7 @@ static void amiidb_scene_fav_list_read_cb(amiidb_fav_info_t *p_info, void *ctx) 
             const char *name = get_amiibo_display_name(p_amiibo);
             mui_list_view_add_item(app->p_list_view, ICON_FILE, name, p_fav);
         } else {
-            sprintf(txt, "Amiibo[%08x:%08x]", p_fav->amiibo_head, p_fav->amiibo_tail);
+            sprintf(txt, "[%08x:%08x]", p_fav->amiibo_head, p_fav->amiibo_tail);
             mui_list_view_add_item(app->p_list_view, ICON_FILE, txt, p_fav);
         }
     }

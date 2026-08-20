@@ -6,6 +6,10 @@ SDK_ROOT := $(NRF52_SDK_ROOT)
 PROJ_DIR := ./src
 BOARD ?= LCD
 
+ifneq ($(filter OLED KEYPAD,$(BOARD)),)
+OLED_TYPE ?= sh1106
+endif
+
 $(OUTPUT_DIRECTORY)/bootloader.out: \
   LINKER_SCRIPT  := ../ld/bootloader.ld
 
@@ -249,6 +253,7 @@ help:
 
 TEMPLATE_PATH := $(SDK_ROOT)/components/toolchain/gcc
 
+PASS_LINKER_INPUT_VIA_FILE := 0
 
 include $(TEMPLATE_PATH)/Makefile.common
 
