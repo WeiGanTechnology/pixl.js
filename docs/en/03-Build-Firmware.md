@@ -41,4 +41,16 @@ AmiiboTool, iNFC, and similar rebranded hardware with a dedicated back button (P
 - Local build: `make all BOARD=KEYPAD RELEASE=1` (OLED/KEYPAD boards auto-enable SH1106 in the bootloader)
 - After first install or a board-type change, flash **`pixljs_all.hex`** via wired method (includes bootloader); do not rely on OTA alone
 - Verify branch and build info under **Settings → Version**
-- KEYPAD firmware disables **Player** and **Game** to fit FLASH; Amiibo-related apps remain enabled
+- KEYPAD firmware disables **Player** and **Game** to fit FLASH; tag database and emulator apps remain enabled
+
+## OTA signing key
+
+OTA packages are signed with the key selected by `DFU_PRIVATE_KEY`. The default value is `../bootloader/priv.pem`, which is intentionally public in this project so compatible-device owners and firmware developers can build and update custom firmware.
+
+If you build a custom bootloader with a different public key, pass the matching private key when generating OTA packages:
+
+```
+cd fw && make ota DFU_PRIVATE_KEY=/path/to/custom-private-key.pem
+```
+
+Devices will only accept OTA packages signed by the private key that matches the public key compiled into their bootloader. Do not commit personal or device-specific private keys.
