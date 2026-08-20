@@ -1,8 +1,9 @@
-#!/usb/bin/env python3
+#!/usr/bin/env python3
 
 import subprocess
 import os
 import json
+import sys
 from datetime import date, datetime
 
 
@@ -11,11 +12,7 @@ class GitVersion:
         self.source_dir = source_dir
 
     def get_version_info(self):
-        commit = "unknown"
-        try:
-            commit = self._exec_git("rev-parse --short HEAD") or "unknown"
-        except subprocess.CalledProcessError as e:
-            print("git rev-parse error:\n" + e.output.decode('utf-8'))
+        commit = self._git_or("rev-parse --short HEAD", "unknown")
 
         dirty = False
         try:
@@ -26,24 +23,27 @@ class GitVersion:
 
         # If WORKFLOW_BRANCH_OR_TAG is set in environment, is has precedence
         # (set by CI)
-        branch = (
-            os.environ.get("WORKFLOW_BRANCH_OR_TAG", None)
-            or self._exec_git("rev-parse --abbrev-ref HEAD")
-            or "unknown"
-        )
+        branch = os.environ.get("WORKFLOW_BRANCH_OR_TAG", None)
+        if not branch:
+            branch = self._git_or("rev-parse --abbrev-ref HEAD", "unknown")
 
-        branch_num = self._exec_git("rev-list --count HEAD") or "n/a"
+        branch_num = self._git_or("rev-list --count HEAD", "n/a")
 
+        fw_version = os.environ.get("FW_VERSION", "").strip()
         ref_type = os.environ.get("GITHUB_REF_TYPE", None)
-        if ref_type == "tag":
-            version = os.environ.get("GITHUB_REF_NAME", None)
+        if fw_version:
+            version = fw_version
+        elif ref_type == "tag":
+            version = os.environ.get("GITHUB_REF_NAME", None) or "unknown"
+            if version.startswith("v"):
+                version = version[1:]
+            if version.endswith("-amiibotool"):
+                version = version[: -len("-amiibotool")]
         elif ref_type == "branch":
-            version = "b" + os.environ.get("GITHUB_RUN_NUMBER", None)
+            run_number = os.environ.get("GITHUB_RUN_NUMBER", "0")
+            version = "b" + str(run_number)
         else:
-            try:
-                version = self._exec_git("describe --tags --abbrev=0 --exact-match")
-            except subprocess.CalledProcessError:
-                version = "unknown"
+            version = self._git_or("describe --tags --abbrev=0 --exact-match", "unknown")
 
         return {
             "GIT_COMMIT": commit,
@@ -52,6 +52,14 @@ class GitVersion:
             "VERSION": version,
             "BUILD_DIRTY": dirty and 1 or 0,
         }
+
+    def _git_or(self, args, default):
+        try:
+            return self._exec_git(args) or default
+        except subprocess.CalledProcessError as e:
+            output = e.output.decode("utf-8") if e.output else ""
+            print(f"git {args} error:\n{output}")
+            return default
 
     def _exec_git(self, args):
         cmd = ["git"]
@@ -66,11 +74,12 @@ class GitVersion:
 class Main(object):
 
     def get_root_dir(self):
-        dirname, filename = os.path.split(os.path.abspath(__file__)) 
-        return os.path.normpath(os.path.join(dirname,".."))
+        dirname, filename = os.path.split(os.path.abspath(__file__))
+        return os.path.normpath(os.path.join(dirname, ".."))
 
     def generate(self):
-        current_info = GitVersion(".").get_version_info()
+        root_dir = self.get_root_dir()
+        current_info = GitVersion(root_dir).get_version_info()
 
         if "SOURCE_DATE_EPOCH" in os.environ:
             build_date = datetime.utcfromtimestamp(int(os.environ["SOURCE_DATE_EPOCH"]))
@@ -84,11 +93,8 @@ class Main(object):
             }
         )
 
-        if current_info["VERSION"] == 'unknown':
-            if "FW_VERSION" in os.environ:
-                current_info["VERSION"] = os.environ["FW_VERSION"]
-            else:
-                current_info["VERSION"] = current_info["GIT_BRANCH"] + "_" + current_info["GIT_COMMIT"]
+        if current_info["VERSION"] == "unknown":
+            current_info["VERSION"] = current_info["GIT_BRANCH"] + "_" + current_info["GIT_COMMIT"]
 
         version_values = []
         for key in current_info:
@@ -100,7 +106,7 @@ class Main(object):
         new_version_info_fmt = "\n".join(version_values) + "\n"
 
         current_version_info = None
-        outdir = os.path.join(self.get_root_dir(),"application", "src") 
+        outdir = os.path.join(self.get_root_dir(), "application", "src")
         version_header_name = os.path.join(outdir, "version.inc.h")
         version_json_name = os.path.join(outdir, "version.json")
 
@@ -115,7 +121,6 @@ class Main(object):
             print("new: ", new_version_info_fmt)
             with open(version_header_name, "w", newline="\n") as file:
                 file.write(new_version_info_fmt)
-            # os.utime("../lib/toolbox/version.c", None)
             print("Version information updated")
         else:
             print("Version information hasn't changed")
@@ -133,4 +138,4 @@ class Main(object):
 
 if __name__ == "__main__":
     m = Main()
-    m.generate()
+    sys.exit(m.generate() or 0)

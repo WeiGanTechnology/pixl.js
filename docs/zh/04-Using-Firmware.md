@@ -346,7 +346,7 @@ NTAG系列的模拟功能还是测试中，功能还不太完善，未完全模�
 
 # 游戏
 
-目前基于 [wagiminator/CH32V003-GameConsole](https://github.com/wagiminator/CH32V003-GameConsole) 移植了4个游戏。
+目前基于 [wagiminator/CH32V003-GameConsole](https://github.com/wagiminator/CH32V003-GameConsole) 移植了4个游戏（**AmiiboTool / KEYPAD 四键固件为节省 FLASH 未包含此应用**）。
 这四个游戏如下：
 
 * 复仇者

@@ -21,7 +21,7 @@ typedef struct {
 } app_desktop_t;
 
 static void app_desktop_list_view_on_selected(app_list_view_event_t event, app_list_view_t *p_view) {
-    mini_app_t * app = app_list_view_get(p_view, app_list_view_get_focus(p_view));
+    const mini_app_t *app = app_list_view_get(p_view, app_list_view_get_focus(p_view));
     mini_app_launcher_run(mini_app_launcher(), app->id);
 }
 
@@ -50,6 +50,11 @@ void app_desktop_on_run(mini_app_inst_t *p_app_inst) {
                                  app_list_view_get_view(p_app_handle->p_app_list_view));
     mui_view_dispatcher_attach(p_app_handle->p_view_dispatcher, MUI_LAYER_WINDOW);
     mui_view_dispatcher_switch_to_view(p_app_handle->p_view_dispatcher, DESKTOP_VIEW_ID_MAIN);
+
+    mui_back_config_t back_config = {
+        .mini_app_id = MINI_APP_ID_DESKTOP,
+    };
+    mui_view_dispatcher_set_back_handler(p_app_handle->p_view_dispatcher, &back_config);
 }
 
 void app_desktop_on_kill(mini_app_inst_t *p_app_inst) {

@@ -13,7 +13,4 @@ typedef enum {
 
 extern const mui_scene_t amiidb_scene_defines[];
 
-
-
-
 #endif 

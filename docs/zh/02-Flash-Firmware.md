@@ -15,6 +15,8 @@
 
 你需要确保连接好 3.3V、GND、SWDIO、SWDCLK这四根线。  使用文件中的  `fw_update.bat` 下载 `pixjs_all.hex` 文件.
 
+**AmiiboTool / iNFC 四键设备**：请使用 `amiibotool-fw-keypad` 产物中的 `pixljs_all.hex` 全量刷写。若此前刷过错误的三键 OLED 包或仅 OTA 更新了 app，屏幕可能颠倒、返回键无反应；全量重刷 KEYPAD 包可一并修复 bootloader 与按键映射。
+
 您也可以使用OpenOCD来刷写设备，以下是执行命令的示例:
 ```
 openocd -f interface/cmsis-dap.cfg -c "transport select swd" -f target/nrf52.cfg -d2 -c init -c "reset init" -c halt -c "nrf5 mass_erase" -c "program pixjs_all.hex verify" -c "program nrf52832_xxaa.hex verify" -c exit

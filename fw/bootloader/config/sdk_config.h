@@ -316,7 +316,11 @@
 // <31=> 31 (P0.31) 
 
 #ifndef NRF_BL_DFU_ENTER_METHOD_BUTTON_PIN
+#ifdef OLED_TYPE_SH1106
+#define NRF_BL_DFU_ENTER_METHOD_BUTTON_PIN 5   // stick RIGHT (OLED rotated)
+#else
 #define NRF_BL_DFU_ENTER_METHOD_BUTTON_PIN 7   // stick RIGHT
+#endif
 #endif
 
 // </e>

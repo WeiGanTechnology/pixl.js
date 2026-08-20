@@ -235,6 +235,12 @@ static void mui_text_input_on_input(mui_view_t *p_view, mui_input_event_t *event
                 string_push_back(p_mui_text_input->input_text, c);
             }
         } break;
+
+        case INPUT_KEY_BACK:
+            if (p_mui_text_input->event_cb) {
+                p_mui_text_input->event_cb(MUI_TEXT_INPUT_EVENT_CANCELLED, p_mui_text_input);
+            }
+            break;
         }
     }
 }
@@ -297,7 +303,7 @@ void mui_text_input_reset(mui_text_input_t *p_view) {
 
 void mui_text_input_set_focus_key(mui_text_input_t *p_view, char key) {
     for (uint32_t row = 0; row < 3; row++) {
-        mui_text_input_key_t *input_key = get_row(row);
+        const mui_text_input_key_t *input_key = get_row(row);
         for (uint32_t col = 0; col < get_row_size(row); col++) {
             if (input_key[col].text == key) {
                 p_view->focus_column = col;

@@ -82,4 +82,8 @@ typedef struct {
 
 extern const mini_app_t app_amiidb_info;
 
+bool amiidb_scene_game_list_try_back(app_amiidb_t *app);
+bool amiidb_scene_fav_list_try_back(app_amiidb_t *app);
+bool amiidb_scene_amiibo_search_try_back(app_amiidb_t *app);
+
 #endif

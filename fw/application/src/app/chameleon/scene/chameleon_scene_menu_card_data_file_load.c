@@ -4,6 +4,8 @@
 #include "mini_app_launcher.h"
 #include "mini_app_registry.h"
 
+#include "mui_view_dispatcher.h"
+
 #include "amiibo_helper.h"
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
@@ -143,36 +145,30 @@ static void chameleon_scene_menu_card_data_file_load_reload(app_chameleon_t *app
     return;
 }
 
-// Helper function: Update current directory path
-void update_current_directory(const char* new_dir) {
-    if (strcmp(new_dir, "..") == 0) {
-        // Return to parent directory
-        char* last_slash = strrchr(current_dir, '/');
-        if (last_slash) {
-            *last_slash = '\0'; // Truncate string to remove the last directory level
-            
-            // If returning to the level above root directory, clear current_dir
-            if (strlen(current_dir) == 0 || strcmp(current_dir, CHELEMEON_DUMP_FOLDER) == 0) {
-                strcpy(current_dir, "");
-            }
-        } else {
-            strcpy(current_dir, ""); // If no slash found, clear directly (return to root directory)
+/** Move current directory to parent. No-op if already at root. */
+void update_current_directory_to_parent(void) {
+    char *last_slash = strrchr(current_dir, '/');
+    if (last_slash) {
+        *last_slash = '\0';
+        if (strlen(current_dir) == 0 || strcmp(current_dir, CHELEMEON_DUMP_FOLDER) == 0) {
+            current_dir[0] = '\0';
         }
     } else {
-        // Enter subdirectory
-        char temp[VFS_MAX_PATH_LEN];
-        
-        if (strlen(current_dir) == 0) {
-            // If currently in root directory
-            sprintf(temp, "%s/%s", CHELEMEON_DUMP_FOLDER, new_dir);
-        } else {
-            // If already in a subdirectory
-            sprintf(temp, "%s/%s", current_dir, new_dir);
-        }
-        
-        strcpy(current_dir, temp);
+        current_dir[0] = '\0';
     }
 }
+
+/** Set current directory to the given subdirectory (name only, not full path). */
+void update_current_directory(const char *subdir_name) {
+    char temp[VFS_MAX_PATH_LEN];
+    if (strlen(current_dir) == 0) {
+        sprintf(temp, "%s/%s", CHELEMEON_DUMP_FOLDER, subdir_name);
+    } else {
+        sprintf(temp, "%s/%s", current_dir, subdir_name);
+    }
+    strcpy(current_dir, temp);
+}
+
 
 static void chameleon_scene_menu_card_data_file_load_on_event(mui_list_view_event_t event, mui_list_view_t *p_list_view,
                                                        mui_list_item_t *p_item) {
@@ -191,8 +187,7 @@ static void chameleon_scene_menu_card_data_file_load_on_event(mui_list_view_even
     } break;
     
     case CHAMELEON_MENU_PARENT_DIR: {
-        // Return to parent directory
-        update_current_directory("..");
+        update_current_directory_to_parent();
         chameleon_scene_menu_card_data_file_load_reload(app);
     } break;
 
@@ -223,4 +218,19 @@ void chameleon_scene_menu_card_data_file_load_on_exit(void *user_data) {
     
     // Clean up current directory path
     strcpy(current_dir, "");
+}
+
+bool chameleon_scene_menu_card_data_file_load_try_back(app_chameleon_t *app) {
+    if (mui_scene_dispatcher_current_scene(app->p_scene_dispatcher) != CHAMELEON_SCENE_MENU_CARD_DATA_FILE_LOAD) {
+        return false;
+    }
+    if (mui_view_dispatcher_get_active_view(app->p_view_dispatcher) != mui_list_view_get_view(app->p_list_view)) {
+        return false;
+    }
+    if (strlen(current_dir) == 0) {
+        return false;
+    }
+    update_current_directory_to_parent();
+    chameleon_scene_menu_card_data_file_load_reload(app);
+    return true;
 }

@@ -3,6 +3,7 @@
 #include "amiidb_scene.h"
 #include "app_amiidb.h"
 #include "mui_list_view.h"
+#include "mui_view_dispatcher.h"
 #include "nrf_log.h"
 
 #include "db_header.h"
@@ -36,7 +37,7 @@ static void amiidb_scene_fav_list_list_view_on_selected(mui_list_view_event_t ev
         case ICON_EXIT:
             if (string_size(app->cur_fav_dir) == 0) {
                 app->in_fav_folders = true;
-                mui_scene_dispatcher_next_scene(app->p_scene_dispatcher, AMIIDB_SCENE_MAIN);
+                mui_scene_dispatcher_previous_scene(app->p_scene_dispatcher);
             } else {
                 string_reset(app->cur_fav_dir);
                 app->in_fav_folders = false;
@@ -110,7 +111,7 @@ static void amiidb_scene_fav_list_read_cb(amiidb_fav_info_t *p_info, void *ctx) 
             const char *name = get_amiibo_display_name(p_amiibo);
             mui_list_view_add_item(app->p_list_view, ICON_FILE, name, p_fav);
         } else {
-            sprintf(txt, "Amiibo[%08x:%08x]", p_fav->amiibo_head, p_fav->amiibo_tail);
+            sprintf(txt, "[%08x:%08x]", p_fav->amiibo_head, p_fav->amiibo_tail);
             mui_list_view_add_item(app->p_list_view, ICON_FILE, txt, p_fav);
         }
     }
@@ -148,4 +149,20 @@ void amiidb_scene_fav_list_on_enter(void *user_data) {
 void amiidb_scene_fav_list_on_exit(void *user_data) {
     app_amiidb_t *app = (app_amiidb_t *)user_data;
     mui_list_view_clear_items_with_cb(app->p_list_view, amiidb_scene_fav_list_item_clear_cb);
+}
+
+bool amiidb_scene_fav_list_try_back(app_amiidb_t *app) {
+    if (mui_scene_dispatcher_current_scene(app->p_scene_dispatcher) != AMIIDB_SCENE_FAV_LIST) {
+        return false;
+    }
+    if (mui_view_dispatcher_get_active_view(app->p_view_dispatcher) != mui_list_view_get_view(app->p_list_view)) {
+        return false;
+    }
+    if (string_size(app->cur_fav_dir) == 0) {
+        return false;
+    }
+    string_reset(app->cur_fav_dir);
+    app->in_fav_folders = false;
+    amiidb_scene_fav_list_reload(app);
+    return true;
 }

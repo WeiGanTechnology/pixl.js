@@ -1,4 +1,5 @@
 #include "mui_msg_box.h"
+#include "mui_back_helper.h"
 
 static uint8_t mui_msg_box_get_button_num(mui_msg_box_t *p_mui_msg_box) {
     return (string_size(p_mui_msg_box->btn_left_text) > 0) + (string_size(p_mui_msg_box->btn_center_text) > 0) +
@@ -83,6 +84,10 @@ static void mui_msg_box_on_input(mui_view_t *p_view, mui_input_event_t *event) {
             if (p_mui_msg_box->event_cb) {
                 p_mui_msg_box->event_cb(p_mui_msg_box->focus, p_mui_msg_box);
             }
+            break;
+
+        case INPUT_KEY_BACK:
+            mui_back_dismiss_msg_box(p_mui_msg_box);
             break;
         }
     }

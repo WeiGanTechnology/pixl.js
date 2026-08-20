@@ -11,6 +11,18 @@ static void app_ble_on_run(mini_app_inst_t *p_app_inst);
 static void app_ble_on_kill(mini_app_inst_t *p_app_inst);
 static void app_ble_on_event(mini_app_inst_t *p_app_inst, mini_app_event_t *p_event);
 
+static mui_back_app_ctx_t app_ble_back_ctx;
+
+static void app_ble_register_back_handler(app_ble_t *p_app_handle) {
+    app_ble_back_ctx.p_view_dispatcher = p_app_handle->p_view_dispatcher;
+    app_ble_back_ctx.p_text_input = NULL;
+    app_ble_back_ctx.p_msg_box = NULL;
+    app_ble_back_ctx.p_scene_dispatcher = p_app_handle->p_scene_dispatcher;
+    app_ble_back_ctx.extra_cb = NULL;
+    app_ble_back_ctx.extra_ctx = NULL;
+    mui_back_register_app(p_app_handle->p_view_dispatcher, &app_ble_back_ctx, MINI_APP_ID_BLE);
+}
+
 void app_ble_on_run(mini_app_inst_t *p_app_inst) {
 
     app_ble_t *p_app_handle = mui_mem_malloc(sizeof(app_ble_t));
@@ -30,6 +42,8 @@ void app_ble_on_run(mini_app_inst_t *p_app_inst) {
     mui_scene_dispatcher_set_scene_defines(p_app_handle->p_scene_dispatcher, ble_scene_defines, BLE_SCENE_MAX);
 
     mui_scene_dispatcher_next_scene(p_app_handle->p_scene_dispatcher, BLE_SCENE_CONNECT_START);
+
+    app_ble_register_back_handler(p_app_handle);
 }
 
 void app_ble_on_kill(mini_app_inst_t *p_app_inst) {

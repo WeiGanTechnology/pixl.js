@@ -17,6 +17,25 @@ typedef struct {
     uint8_t cycle_mode_index;
 } app_chameleon_retain_data_t;
 
+static mui_back_app_ctx_t app_chameleon_back_ctx;
+
+bool chameleon_scene_menu_card_data_file_load_try_back(app_chameleon_t *app);
+
+static bool app_chameleon_back_extra_cb(void *ctx, mui_input_event_t *event) {
+    (void)event;
+    return chameleon_scene_menu_card_data_file_load_try_back(ctx);
+}
+
+static void app_chameleon_register_back_handler(app_chameleon_t *p_app_handle) {
+    app_chameleon_back_ctx.p_view_dispatcher = p_app_handle->p_view_dispatcher;
+    app_chameleon_back_ctx.p_text_input = p_app_handle->p_text_input;
+    app_chameleon_back_ctx.p_msg_box = p_app_handle->p_msg_box;
+    app_chameleon_back_ctx.p_scene_dispatcher = p_app_handle->p_scene_dispatcher;
+    app_chameleon_back_ctx.extra_cb = app_chameleon_back_extra_cb;
+    app_chameleon_back_ctx.extra_ctx = p_app_handle;
+    mui_back_register_app(p_app_handle->p_view_dispatcher, &app_chameleon_back_ctx, MINI_APP_ID_CHAMELEON);
+}
+
 void app_chameleon_on_run(mini_app_inst_t *p_app_inst) {
 
     app_chameleon_t *p_app_handle = mui_mem_malloc(sizeof(app_chameleon_t));
@@ -69,6 +88,8 @@ void app_chameleon_on_run(mini_app_inst_t *p_app_inst) {
     } else {
         mui_scene_dispatcher_next_scene(p_app_handle->p_scene_dispatcher, CHAMELEON_SCENE_MAIN);
     }
+
+    app_chameleon_register_back_handler(p_app_handle);
 }
 
 void app_chameleon_on_kill(mini_app_inst_t *p_app_inst) {

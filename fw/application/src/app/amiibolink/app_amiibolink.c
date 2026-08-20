@@ -18,6 +18,18 @@ typedef struct {
     uint8_t cycle_mode_index;
 } app_amiibolink_retain_data_t;
 
+static mui_back_app_ctx_t app_amiibolink_back_ctx;
+
+static void app_amiibolink_register_back_handler(app_amiibolink_t *p_app_handle) {
+    app_amiibolink_back_ctx.p_view_dispatcher = p_app_handle->p_view_dispatcher;
+    app_amiibolink_back_ctx.p_text_input = NULL;
+    app_amiibolink_back_ctx.p_msg_box = p_app_handle->p_msg_box;
+    app_amiibolink_back_ctx.p_scene_dispatcher = p_app_handle->p_scene_dispatcher;
+    app_amiibolink_back_ctx.extra_cb = NULL;
+    app_amiibolink_back_ctx.extra_ctx = NULL;
+    mui_back_register_app(p_app_handle->p_view_dispatcher, &app_amiibolink_back_ctx, MINI_APP_ID_AMIIBOLINK);
+}
+
 void app_amiibolink_on_run(mini_app_inst_t *p_app_inst) {
 
     app_amiibolink_t *p_app_handle = mui_mem_malloc(sizeof(app_amiibolink_t));
@@ -71,6 +83,8 @@ void app_amiibolink_on_run(mini_app_inst_t *p_app_inst) {
     }
 
     mui_scene_dispatcher_next_scene(p_app_handle->p_scene_dispatcher, AMIIBOLINK_SCENE_MAIN);
+
+    app_amiibolink_register_back_handler(p_app_handle);
 }
 
 void app_amiibolink_on_kill(mini_app_inst_t *p_app_inst) {
@@ -95,7 +109,7 @@ void app_amiibolink_on_kill(mini_app_inst_t *p_app_inst) {
 void app_amiibolink_on_event(mini_app_inst_t *p_app_inst, mini_app_event_t *p_event) {}
 
 mini_app_t app_amiibolink_info = {.id = MINI_APP_ID_AMIIBOLINK,
-                                        .name = "AmiiboLink",
+                                        .name = "AmiiLink",
                                         .name_i18n_key = _L_APP_AMIIBOLINK,
                                         .icon = 0xe1c1,
                                         .deamon = false,

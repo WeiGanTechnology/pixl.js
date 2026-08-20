@@ -22,7 +22,7 @@ static void amiidb_scene_data_list_list_view_on_selected(mui_list_view_event_t e
     if (event == MUI_LIST_VIEW_EVENT_SELECTED) {
         switch (icon) {
         case ICON_EXIT: {
-            mui_scene_dispatcher_next_scene(app->p_scene_dispatcher, AMIIDB_SCENE_MAIN);
+            mui_scene_dispatcher_previous_scene(app->p_scene_dispatcher);
         } break;
 
         case ICON_AMIIBO:
@@ -53,7 +53,7 @@ void amiidb_scene_data_list_amiibo_slot_info_cb(amiidb_slot_info_t *p_info, void
             const char *name = get_amiibo_display_name(p_amiibo);
             sprintf(txt, "%02d %s", p_info->slot + 1, name);
         } else {
-            sprintf(txt, "Amiibo[%08x:%08x]", p_info->amiibo_head, p_info->amiibo_tail);
+            sprintf(txt, "[%08x:%08x]", p_info->amiibo_head, p_info->amiibo_tail);
         }
 
         mui_list_view_add_item(app->p_list_view, ICON_AMIIBO, txt, (void *)0);

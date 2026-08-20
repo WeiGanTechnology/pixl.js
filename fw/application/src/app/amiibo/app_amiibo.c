@@ -20,6 +20,27 @@ static void app_amiibo_on_run(mini_app_inst_t *p_app_inst);
 static void app_amiibo_on_kill(mini_app_inst_t *p_app_inst);
 static void app_amiibo_on_event(mini_app_inst_t *p_app_inst, mini_app_event_t *p_event);
 
+bool amiibo_scene_file_browser_try_back(app_amiibo_t *app);
+
+static mui_back_app_ctx_t app_amiibo_back_ctx;
+
+static bool app_amiibo_file_browser_back_cb(void *ctx, mui_input_event_t *event) {
+    (void)event;
+    return amiibo_scene_file_browser_try_back(ctx);
+}
+
+static void app_amiibo_register_back_handler(app_amiibo_t *p_app_handle) {
+    app_amiibo_back_ctx.p_view_dispatcher = p_app_handle->p_view_dispatcher;
+    app_amiibo_back_ctx.p_text_input = p_app_handle->p_text_input;
+    app_amiibo_back_ctx.p_msg_box = p_app_handle->p_msg_box;
+    app_amiibo_back_ctx.p_scene_dispatcher = p_app_handle->p_scene_dispatcher;
+    app_amiibo_back_ctx.extra_cb = app_amiibo_file_browser_back_cb;
+    app_amiibo_back_ctx.extra_ctx = p_app_handle;
+    app_amiibo_back_ctx.text_input_cancel_to_view = true;
+    app_amiibo_back_ctx.text_input_cancel_view_id = AMIIBO_VIEW_ID_LIST;
+    mui_back_register_app(p_app_handle->p_view_dispatcher, &app_amiibo_back_ctx, MINI_APP_ID_AMIIBO);
+}
+
 static void app_amiibo_try_mount_drive(app_amiibo_t *p_app_inst) {
     vfs_driver_t *p_driver = vfs_get_driver(p_app_inst->current_drive);
     if (p_driver->mounted()) {
@@ -75,6 +96,8 @@ void app_amiibo_on_run(mini_app_inst_t *p_app_inst) {
                                  mui_toast_view_get_view(p_app_handle->p_toast_view));
     mui_view_dispatcher_attach(p_app_handle->p_view_dispatcher_toast, MUI_LAYER_TOAST);
     mui_view_dispatcher_switch_to_view(p_app_handle->p_view_dispatcher_toast, AMIIBO_VIEW_ID_TOAST);
+
+    app_amiibo_register_back_handler(p_app_handle);
 
     extern const ntag_t default_ntag215;
     APP_ERROR_CHECK(ntag_emu_init(&default_ntag215));
@@ -158,7 +181,7 @@ void app_amiibo_on_kill(mini_app_inst_t *p_app_inst) {
 void app_amiibo_on_event(mini_app_inst_t *p_app_inst, mini_app_event_t *p_event) {}
 
 mini_app_t app_amiibo_info = {.id = MINI_APP_ID_AMIIBO,
-                              .name = "Amiibo模拟器",
+                              .name = "模拟器",
                               .name_i18n_key = _L_APP_AMIIBO,
                               .icon = 0xe082,
                               .sys = false,

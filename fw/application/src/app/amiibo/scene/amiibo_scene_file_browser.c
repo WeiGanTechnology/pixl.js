@@ -3,6 +3,7 @@
 #include "cwalk.h"
 #include "mini_app_launcher.h"
 #include "mini_app_registry.h"
+#include "mui_back_helper.h"
 #include "mui_list_view.h"
 #include "nrf_log.h"
 #include "vfs.h"
@@ -127,4 +128,26 @@ void amiibo_scene_file_browser_on_exit(void *user_data) {
     mui_list_view_set_selected_cb(app->p_list_view, NULL);
     mui_list_view_set_user_data(app->p_list_view, NULL);
     mui_list_view_clear_items(app->p_list_view);
+}
+
+bool amiibo_scene_file_browser_try_back(app_amiibo_t *app) {
+    if (mui_scene_dispatcher_current_scene(app->p_scene_dispatcher) != AMIIBO_SCENE_FILE_BROWSER) {
+        return false;
+    }
+    if (mui_view_dispatcher_get_active_view(app->p_view_dispatcher) != mui_list_view_get_view(app->p_list_view)) {
+        return false;
+    }
+    if (string_cmp_str(app->current_folder, "/") == 0) {
+        return false;
+    }
+
+    struct cwk_segment segment;
+    const char *folder_cstr = string_get_cstr(app->current_folder);
+    cwk_path_get_last_segment(folder_cstr, &segment);
+    string_left(app->current_folder, segment.begin - folder_cstr);
+    if (string_size(app->current_folder) == 0) {
+        string_cat_str(app->current_folder, "/");
+    }
+    amiibo_scene_file_browser_reload_folders(app);
+    return true;
 }

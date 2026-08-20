@@ -18,6 +18,35 @@ static void app_amiidb_on_run(mini_app_inst_t *p_app_inst);
 static void app_amiidb_on_kill(mini_app_inst_t *p_app_inst);
 static void app_amiidb_on_event(mini_app_inst_t *p_app_inst, mini_app_event_t *p_event);
 
+static mui_back_app_ctx_t app_amiidb_back_ctx;
+
+static bool app_amiidb_back_extra_cb(void *ctx, mui_input_event_t *event) {
+    (void)event;
+    app_amiidb_t *app = ctx;
+    if (amiidb_scene_game_list_try_back(app)) {
+        return true;
+    }
+    if (amiidb_scene_fav_list_try_back(app)) {
+        return true;
+    }
+    if (amiidb_scene_amiibo_search_try_back(app)) {
+        return true;
+    }
+    return false;
+}
+
+static void app_amiidb_register_back_handler(app_amiidb_t *p_app_handle) {
+    app_amiidb_back_ctx.p_view_dispatcher = p_app_handle->p_view_dispatcher;
+    app_amiidb_back_ctx.p_text_input = p_app_handle->p_text_input;
+    app_amiidb_back_ctx.p_msg_box = p_app_handle->p_msg_box;
+    app_amiidb_back_ctx.p_scene_dispatcher = p_app_handle->p_scene_dispatcher;
+    app_amiidb_back_ctx.extra_cb = app_amiidb_back_extra_cb;
+    app_amiidb_back_ctx.extra_ctx = p_app_handle;
+    app_amiidb_back_ctx.text_input_cancel_to_view = true;
+    app_amiidb_back_ctx.text_input_cancel_view_id = AMIIDB_VIEW_ID_LIST;
+    mui_back_register_app(p_app_handle->p_view_dispatcher, &app_amiidb_back_ctx, MINI_APP_ID_AMIIDB);
+}
+
 static void app_amiidb_try_mount_drive(app_amiidb_t *p_app_inst) {
     vfs_driver_t *p_driver = vfs_get_driver(VFS_DRIVE_EXT);
     if (p_driver->mounted()) {
@@ -102,6 +131,8 @@ void app_amiidb_on_run(mini_app_inst_t *p_app_inst) {
     } else {
         mui_scene_dispatcher_next_scene(p_app_handle->p_scene_dispatcher, AMIIDB_SCENE_MAIN);
     }
+
+    app_amiidb_register_back_handler(p_app_handle);
 }
 
 void app_amiidb_on_kill(mini_app_inst_t *p_app_inst) {
@@ -149,7 +180,7 @@ void app_amiidb_on_kill(mini_app_inst_t *p_app_inst) {
 void app_amiidb_on_event(mini_app_inst_t *p_app_inst, mini_app_event_t *p_event) {}
 
 const mini_app_t app_amiidb_info = {.id = MINI_APP_ID_AMIIDB,
-                                    .name = "Amiibo数据库",
+                                    .name = "数据库",
                                     .name_i18n_key = _L_APP_AMIIDB,
                                     .icon = 0xe0ba,
                                     .sys = false,

@@ -91,3 +91,11 @@ uint32_t mui_scene_dispatcher_current_scene(mui_scene_dispatcher_t *p_dispatcher
     }
     return 0;
 }
+
+uint32_t mui_scene_dispatcher_stack_size(mui_scene_dispatcher_t *p_dispatcher) {
+    return scene_id_stack_size(p_dispatcher->scene_id_stack);
+}
+
+bool mui_scene_dispatcher_is_at_root(mui_scene_dispatcher_t *p_dispatcher) {
+    return scene_id_stack_size(p_dispatcher->scene_id_stack) <= 1;
+}

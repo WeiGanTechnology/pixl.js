@@ -10,7 +10,9 @@
 extern "C" {
 #endif
 
-#if defined(BOARD_OLED)
+#if defined(BOARD_KEYPAD)
+#include "boards/board_keypad.h"
+#elif defined(BOARD_OLED)
 #include "boards/board_oled.h"
 #elif defined(BOARD_LCD)
 #include "boards/board_lcd.h"

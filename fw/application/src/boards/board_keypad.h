@@ -1,5 +1,5 @@
-#ifndef BOARD_OLED_H
-#define BOARD_OLED_H
+#ifndef BOARD_KEYPAD_H
+#define BOARD_KEYPAD_H
 
 #define LEDS_NUMBER    1
 
@@ -16,22 +16,24 @@
 #define BSP_LED_0      LED_1
 
 
-#define BUTTONS_NUMBER 3
+#define BUTTONS_NUMBER 4
 
 #define BUTTON_START   5
 #define BUTTON_1       5
 #define BUTTON_2       6
 #define BUTTON_3       7
-#define BUTTON_STOP    7
+#define BUTTON_4       20
+#define BUTTON_STOP    20
 #define BUTTON_PULL    NRF_GPIO_PIN_PULLUP
 
 #define BUTTONS_ACTIVE_STATE 0
 
-#define BUTTONS_LIST { BUTTON_1, BUTTON_2, BUTTON_3}
+#define BUTTONS_LIST { BUTTON_1, BUTTON_2, BUTTON_3, BUTTON_4 }
 
 #define BSP_BUTTON_0   BUTTON_3
 #define BSP_BUTTON_1   BUTTON_2
 #define BSP_BUTTON_2   BUTTON_1
+#define BSP_BUTTON_3   BUTTON_4
 
 
 // display config
@@ -75,6 +77,9 @@
 #endif
 //Game
 // #define APP_GAME_ENABLE
+#if defined(APP_GAME_ENABLE)
+#error "KEYPAD: APP_GAME_ENABLE exceeds FLASH budget (~18KB overflow with Amiibo apps)"
+#endif
 
 
 #endif

@@ -2,6 +2,7 @@
 #include "amiidb_scene.h"
 #include "app_amiidb.h"
 #include "mui_list_view.h"
+#include "mui_view_dispatcher.h"
 #include "nrf_log.h"
 
 #include "db_header.h"
@@ -18,7 +19,7 @@ static void amiidb_scene_game_list_list_view_on_selected(mui_list_view_event_t e
     switch (icon) {
     case ICON_EXIT:
         if (app->game_id_index <= 0) {
-            mui_scene_dispatcher_next_scene(app->p_scene_dispatcher, AMIIDB_SCENE_MAIN);
+            mui_scene_dispatcher_previous_scene(app->p_scene_dispatcher);
         } else {
             app->game_id_index--;
             amiidb_scene_game_list_reload(app);
@@ -99,7 +100,7 @@ static void amiidb_scene_game_list_reload(app_amiidb_t *app) {
                     const char *name = get_amiibo_display_name(p_amiibo);
                     mui_list_view_add_item(app->p_list_view, ICON_FILE, name, (void *)p_amiibo);
                 } else {
-                    sprintf(txt, "Amiibo[%08x:%08x]", p_link->head, p_link->tail);
+                    sprintf(txt, "[%08x:%08x]", p_link->head, p_link->tail);
                     mui_list_view_add_item(app->p_list_view, ICON_FILE, txt, (void *)p_amiibo);
                 }
                 add_cnt++;
@@ -132,4 +133,19 @@ void amiidb_scene_game_list_on_enter(void *user_data) {
 void amiidb_scene_game_list_on_exit(void *user_data) {
     app_amiidb_t *app = (app_amiidb_t *)user_data;
     mui_list_view_clear_items(app->p_list_view);
+}
+
+bool amiidb_scene_game_list_try_back(app_amiidb_t *app) {
+    if (mui_scene_dispatcher_current_scene(app->p_scene_dispatcher) != AMIIDB_SCENE_GAME_LIST) {
+        return false;
+    }
+    if (mui_view_dispatcher_get_active_view(app->p_view_dispatcher) != mui_list_view_get_view(app->p_list_view)) {
+        return false;
+    }
+    if (app->game_id_index <= 0) {
+        return false;
+    }
+    app->game_id_index--;
+    amiidb_scene_game_list_reload(app);
+    return true;
 }

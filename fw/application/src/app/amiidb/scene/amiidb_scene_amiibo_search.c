@@ -2,6 +2,7 @@
 #include "amiidb_scene.h"
 #include "app_amiidb.h"
 #include "mui_list_view.h"
+#include "mui_view_dispatcher.h"
 #include "nrf_log.h"
 
 #include "amiidb_api_db.h"
@@ -45,7 +46,7 @@ static void amiidb_scene_amiibo_search_list_view_on_selected(mui_list_view_event
     switch (icon) {
     case ICON_EXIT:
         if (app->game_id_index <= 0) {
-            mui_scene_dispatcher_next_scene(app->p_scene_dispatcher, AMIIDB_SCENE_MAIN);
+            mui_scene_dispatcher_previous_scene(app->p_scene_dispatcher);
         } else {
             app->game_id_index--;
             amiidb_scene_amiibo_search_reload(app);
@@ -121,4 +122,19 @@ void amiidb_scene_amiibo_search_on_enter(void *user_data) {
 void amiidb_scene_amiibo_search_on_exit(void *user_data) {
     app_amiidb_t *app = (app_amiidb_t *)user_data;
     mui_list_view_clear_items(app->p_list_view);
+}
+
+bool amiidb_scene_amiibo_search_try_back(app_amiidb_t *app) {
+    if (mui_scene_dispatcher_current_scene(app->p_scene_dispatcher) != AMIIDB_SCENE_AMIIBO_SEARCH) {
+        return false;
+    }
+    if (mui_view_dispatcher_get_active_view(app->p_view_dispatcher) != mui_list_view_get_view(app->p_list_view)) {
+        return false;
+    }
+    if (app->game_id_index <= 0) {
+        return false;
+    }
+    app->game_id_index--;
+    amiidb_scene_amiibo_search_reload(app);
+    return true;
 }

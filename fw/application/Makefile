@@ -11,6 +11,8 @@ CHAMELEON_ROOT :=$(COMP_DIR)/chameleon-ultra/firmware
 APP_VERSION ?= 1
 RELEASE ?= 1
 BOARD ?= OLED
+FW_TOP_SYMBOLS ?= 20
+FW_TOP_OBJECTS ?= 20
 
 $(OUTPUT_DIRECTORY)/pixljs.out: \
   LINKER_SCRIPT  := ../ld/application.ld
@@ -208,6 +210,8 @@ SRC_FILES += \
   $(PROJ_DIR)/mui/mui_canvas.c \
   $(PROJ_DIR)/mui/mui_event.c \
   $(PROJ_DIR)/mui/mui_input.c \
+  $(PROJ_DIR)/mui/mui_back.c \
+  $(PROJ_DIR)/mui/mui_back_helper.c \
   $(PROJ_DIR)/mui/mui_element.c \
   $(PROJ_DIR)/mui/mui_mem.c \
   $(PROJ_DIR)/mui/mui_anim.c \
@@ -711,12 +715,17 @@ help:
 
 TEMPLATE_PATH := $(SDK_ROOT)/components/toolchain/gcc
 
+PASS_LINKER_INPUT_VIA_FILE := 0
 
 include $(TEMPLATE_PATH)/Makefile.common
 
 $(foreach target, $(TARGETS), $(call define_target, $(target)))
 
+pixljs: version
+all: version pixljs
+
 .PHONY: flash flash_softdevice erase
+.PHONY: size_report size_report_files
 
 # Flash the program
 flash: default
@@ -739,13 +748,13 @@ sdk_config:
 	java -jar $(CMSIS_CONFIG_TOOL) $(SDK_CONFIG_FILE)
 
 version:
-	@cd ../ && python3 scripts/version_gen.py
-	@echo build: BOARD=$(BOARD) RELEASE=$(RELEASE) APP_VERSION=$(APP_VERSION)
+	@cd ../ && FW_VERSION="$(FW_VERSION)" python3 scripts/version_gen.py
+	@echo build: BOARD=$(BOARD) RELEASE=$(RELEASE) APP_VERSION=$(APP_VERSION) FW_VERSION=$(FW_VERSION)
 
-settingsgen:
+settingsgen: $(OUTPUT_DIRECTORY)/pixljs.hex
 	nrfutil settings generate --family NRF52 --application $(OUTPUT_DIRECTORY)/pixljs.hex --application-version $(APP_VERSION) --bootloader-version 1 --bl-settings-version 1 $(OUTPUT_DIRECTORY)/settings.hex
 
-ota: 
+ota: full
 	nrfutil pkg generate --application $(OUTPUT_DIRECTORY)/pixljs.hex --application-version $(APP_VERSION) --hw-version 52 --sd-req 0x0103 --key-file ../bootloader/priv.pem $(OUTPUT_DIRECTORY)/pixjs_ota_v$(APP_VERSION).zip
 
 full: settingsgen
@@ -781,3 +790,17 @@ flash_bmp:
 		-ex 'compare-sections' \
 		-ex 'kill' \
 		$(OUTPUT_DIRECTORY)/pixljs.out
+
+size_report_files: $(OUTPUT_DIRECTORY)/pixljs.bin $(OUTPUT_DIRECTORY)/pixljs.out $(OUTPUT_DIRECTORY)/pixljs.map
+	@python3 ../scripts/size_report.py summarize \
+		--bin $(OUTPUT_DIRECTORY)/pixljs.bin \
+		--elf $(OUTPUT_DIRECTORY)/pixljs.out \
+		--map $(OUTPUT_DIRECTORY)/pixljs.map \
+		--top-symbols $(FW_TOP_SYMBOLS) \
+		--top-objects $(FW_TOP_OBJECTS) \
+		--board $(BOARD) \
+		--release $(RELEASE) \
+		--out-prefix $(OUTPUT_DIRECTORY)/size_report_$(BOARD)
+
+size_report: size_report_files
+	@cat $(OUTPUT_DIRECTORY)/size_report_$(BOARD).txt
