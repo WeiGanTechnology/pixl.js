@@ -1,6 +1,12 @@
 # Pixl.js
 
 这是一个基于原版[Pixl.js](http://www.espruino.com/Pixl.js)的复刻版本，主要的功能是用来模拟Amiibo。
+# 
+<a href='https://apps.apple.com/cn/developer/weigan-technology-shenzhen-co-ltd/id1896482773'><img height='70' alt='Download from AppStore' src='https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg' /></a>
+> [iNFCi](https://apps.apple.com/cn/app/infci/id6767515085)
+# 
+<a href='https://t.me/iTelecast'><img height='70' alt='Download from AppStore' src='https://img.shields.io/badge/Telegram-iTelecast-26A5E4?style=for-the-badge&logo=telegram' /></a>
+> [t.me/iTelecast](https://t.me/iTelecast)
 
 ## 图片
 
