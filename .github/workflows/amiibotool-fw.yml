@@ -3,12 +3,8 @@ name: amiibotool-fw
 on:
   push:
     branches: ["amiibotool"]
+    tags: ["2.16.*", "v2.16.*", "*-amiibotool"]
   workflow_dispatch:
-    inputs:
-      fw_version:
-        description: "Firmware version (e.g. 2.16.1)"
-        required: false
-        default: "2.16.1"
 
 concurrency:
   group: amiibotool-fw-${{ github.workflow }}-${{ github.ref }}
@@ -16,7 +12,6 @@ concurrency:
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   build:
@@ -24,7 +19,7 @@ jobs:
     timeout-minutes: 90
     container: solosky/nrf52-sdk:latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: 'true'
         fetch-depth: 0
@@ -39,14 +34,15 @@ jobs:
       shell: bash
       run: |
         set -eo pipefail
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.fw_version }}" ]; then
-          FW_VERSION="${{ inputs.fw_version }}"
+        if [ "${{ github.ref_type }}" = "tag" ]; then
+          FW_VERSION="${{ github.ref_name }}"
+          FW_VERSION="${FW_VERSION#v}"
+          FW_VERSION="${FW_VERSION%-amiibotool}"
         else
-          FW_VERSION="2.16.1"
-        fi
-        if ! [[ "$FW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-          echo "Invalid firmware version: $FW_VERSION (expected major.minor.patch)" >&2
-          exit 1
+          FW_VERSION="$(git describe --tags --abbrev=0 --match '2.16.*' 2>/dev/null || true)"
+          FW_VERSION="${FW_VERSION#v}"
+          FW_VERSION="${FW_VERSION%-amiibotool}"
+          FW_VERSION="${FW_VERSION:-2.16.1}"
         fi
         IFS=. read -r major minor patch <<< "$FW_VERSION"
         APP_VERSION=$((major * 10000 + minor * 100 + patch))
@@ -54,57 +50,50 @@ jobs:
         echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
         echo "Resolved firmware version: $FW_VERSION (APP_VERSION=$APP_VERSION)"
 
-    - name: Generate version header
+    - name: build firmware
       shell: bash
       run: |
         set -eo pipefail
         cd fw
-        export WORKFLOW_BRANCH_OR_TAG=amiibotool
-        FW_VERSION="$FW_VERSION" make -C application version RELEASE=1 APP_VERSION="$APP_VERSION" BOARD=OLED
+        FW_VERSION="$FW_VERSION" make -C application version RELEASE=1 APP_VERSION="$APP_VERSION" BOARD=KEYPAD
+        make -j$(nproc) bl RELEASE=1 BOARD=KEYPAD OLED_TYPE=sh1106
+        make -j$(nproc) app RELEASE=1 APP_VERSION="$APP_VERSION" BOARD=KEYPAD
+        make -C application full RELEASE=1 APP_VERSION="$APP_VERSION" BOARD=KEYPAD
+        make -C application ota RELEASE=1 APP_VERSION="$APP_VERSION" BOARD=KEYPAD
 
-    - name: Build bootloader
+    - name: generate size report
+      run: cd fw && make size_report RELEASE=1 APP_VERSION="$APP_VERSION" BOARD=KEYPAD
+
+    - name: verify KEYPAD FLASH budget
       shell: bash
       run: |
         set -eo pipefail
-        cd fw
-        make -j$(nproc) bl RELEASE=1 BOARD=OLED OLED_TYPE=sh1106
+        python3 - <<'PY'
+        import json
+        import sys
+        from pathlib import Path
 
-    - name: Build application
-      shell: bash
-      run: |
-        set -eo pipefail
-        cd fw
-        export WORKFLOW_BRANCH_OR_TAG=amiibotool
-        FW_VERSION="$FW_VERSION" make -j$(nproc) -C application pixljs RELEASE=1 APP_VERSION="$APP_VERSION" BOARD=OLED 2>&1 | tee ../app-build-amiibotool.log; exit ${PIPESTATUS[0]}
-
-    - name: Package firmware
-      shell: bash
-      run: |
-        set -eo pipefail
-        cd fw
-        make -C application full RELEASE=1 APP_VERSION="$APP_VERSION" BOARD=OLED
-        make -C application ota RELEASE=1 APP_VERSION="$APP_VERSION" BOARD=OLED
-
-    - name: Upload build log on failure
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: amiibotool-build-log-${{ github.run_id }}
-        if-no-files-found: ignore
-        path: |
-          app-build-amiibotool.log
-          fw/_build/*.txt
-          fw/_build/*.map
+        report = Path("fw/_build/size_report_KEYPAD.json")
+        metrics = json.loads(report.read_text(encoding="utf-8"))
+        flash_limit = 0x5B000
+        flash_used = int(metrics["sections"]["text"]) + int(metrics["sections"]["data"])
+        headroom = flash_limit - flash_used
+        print(f"KEYPAD FLASH used: {flash_used} / {flash_limit} bytes ({headroom} headroom)")
+        if flash_used > flash_limit:
+            print("FLASH budget exceeded; disable optional apps or reduce firmware size.")
+            sys.exit(1)
+        PY
 
     - name: AmiiboTool build note
       run: |
         {
-          echo "## amiibotool firmware (OLED) v${FW_VERSION}"
+          echo "## AmiiboTool firmware (KEYPAD) v${FW_VERSION}"
           echo
-          echo "AmiiboTool hardware variant: **BOARD=OLED** only (not LCD)."
-          echo "Artifacts only (no GitHub Release page). Version **${FW_VERSION}** (APP_VERSION=${APP_VERSION})."
-          echo "Download artifact **amiibotool-fw-v${FW_VERSION}** and flash **pixljs_all.hex** via wired method for first install."
+          echo "This workflow builds **BOARD=KEYPAD** for four-button AmiiboTool/iNFC hardware (back button on P0.20)."
+          echo "Download artifact **amiibotool-fw-keypad-v${FW_VERSION}** and flash **pixljs_all.hex** via wired method."
           echo "OTA package: **pixjs_ota_v${FW_VERSION}.zip** (DFU application-version ${APP_VERSION})."
+          echo "Do **not** use pixljs_fw_OLED (three-button) on AmiiboTool devices."
+          echo "KEYPAD build disables **Player** and **Game** to stay within FLASH limits; Amiibo apps remain enabled."
         } >> "${GITHUB_STEP_SUMMARY}"
 
     - name: copy artifact
@@ -117,11 +106,12 @@ jobs:
         mv "fw/_build/pixjs_ota_v${APP_VERSION}.zip" "./pixjs_ota_v${FW_VERSION}.zip"
         mv fw/docs/fw_readme.txt .
         mv fw/scripts/fw_update.bat .
+        cp fw/_build/size_report_KEYPAD.txt .
 
     - name: upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
-        name: amiibotool-fw-v${{ env.FW_VERSION }}
+        name: amiibotool-fw-keypad-v${{ env.FW_VERSION }}
         path: |
           bootloader.hex
           pixljs.hex
@@ -129,3 +119,4 @@ jobs:
           pixjs_ota_v${{ env.FW_VERSION }}.zip
           fw_readme.txt
           fw_update.bat
+          size_report_KEYPAD.txt

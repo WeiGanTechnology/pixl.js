@@ -20,7 +20,7 @@ clean:
 	@rm -rf _build/
 
 size_report:
-	+@$(MAKE) -C application/ size_report
+	+@$(MAKE) -C application/ size_report BOARD=$(BOARD) RELEASE=$(RELEASE) APP_VERSION=$(APP_VERSION)
 
 size_report_files:
-	+@$(MAKE) -C application/ size_report_files
+	+@$(MAKE) -C application/ size_report_files BOARD=$(BOARD) RELEASE=$(RELEASE) APP_VERSION=$(APP_VERSION)
