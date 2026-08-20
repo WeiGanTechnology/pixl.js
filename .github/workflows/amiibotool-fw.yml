@@ -1,0 +1,131 @@
+name: amiibotool-fw
+
+on:
+  push:
+    branches: ["amiibotool"]
+  workflow_dispatch:
+    inputs:
+      fw_version:
+        description: "Firmware version (e.g. 2.16.1)"
+        required: false
+        default: "2.16.1"
+
+concurrency:
+  group: amiibotool-fw-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container: solosky/nrf52-sdk:latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'true'
+        fetch-depth: 0
+
+    - name: Change Owner of Container Working Directory
+      run: chown root:root .
+
+    - name: Configure git for container
+      run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+    - name: Resolve firmware version
+      shell: bash
+      run: |
+        set -eo pipefail
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.fw_version }}" ]; then
+          FW_VERSION="${{ inputs.fw_version }}"
+        else
+          FW_VERSION="2.16.1"
+        fi
+        if ! [[ "$FW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Invalid firmware version: $FW_VERSION (expected major.minor.patch)" >&2
+          exit 1
+        fi
+        IFS=. read -r major minor patch <<< "$FW_VERSION"
+        APP_VERSION=$((major * 10000 + minor * 100 + patch))
+        echo "FW_VERSION=$FW_VERSION" >> "$GITHUB_ENV"
+        echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+        echo "Resolved firmware version: $FW_VERSION (APP_VERSION=$APP_VERSION)"
+
+    - name: Generate version header
+      shell: bash
+      run: |
+        set -eo pipefail
+        cd fw
+        export WORKFLOW_BRANCH_OR_TAG=amiibotool
+        FW_VERSION="$FW_VERSION" make -C application version RELEASE=1 APP_VERSION="$APP_VERSION" BOARD=OLED
+
+    - name: Build bootloader
+      shell: bash
+      run: |
+        set -eo pipefail
+        cd fw
+        make -j$(nproc) bl RELEASE=1 BOARD=OLED OLED_TYPE=sh1106
+
+    - name: Build application
+      shell: bash
+      run: |
+        set -eo pipefail
+        cd fw
+        export WORKFLOW_BRANCH_OR_TAG=amiibotool
+        FW_VERSION="$FW_VERSION" make -j$(nproc) -C application pixljs RELEASE=1 APP_VERSION="$APP_VERSION" BOARD=OLED 2>&1 | tee ../app-build-amiibotool.log; exit ${PIPESTATUS[0]}
+
+    - name: Package firmware
+      shell: bash
+      run: |
+        set -eo pipefail
+        cd fw
+        make -C application full RELEASE=1 APP_VERSION="$APP_VERSION" BOARD=OLED
+        make -C application ota RELEASE=1 APP_VERSION="$APP_VERSION" BOARD=OLED
+
+    - name: Upload build log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: amiibotool-build-log-${{ github.run_id }}
+        if-no-files-found: ignore
+        path: |
+          app-build-amiibotool.log
+          fw/_build/*.txt
+          fw/_build/*.map
+
+    - name: AmiiboTool build note
+      run: |
+        {
+          echo "## amiibotool firmware (OLED) v${FW_VERSION}"
+          echo
+          echo "AmiiboTool hardware variant: **BOARD=OLED** only (not LCD)."
+          echo "Artifacts only (no GitHub Release page). Version **${FW_VERSION}** (APP_VERSION=${APP_VERSION})."
+          echo "Download artifact **amiibotool-fw-v${FW_VERSION}** and flash **pixljs_all.hex** via wired method for first install."
+          echo "OTA package: **pixjs_ota_v${FW_VERSION}.zip** (DFU application-version ${APP_VERSION})."
+        } >> "${GITHUB_STEP_SUMMARY}"
+
+    - name: copy artifact
+      shell: bash
+      run: |
+        set -eo pipefail
+        mv fw/_build/bootloader.hex .
+        mv fw/_build/pixljs.hex .
+        mv fw/_build/pixljs_all.hex .
+        mv "fw/_build/pixjs_ota_v${APP_VERSION}.zip" "./pixjs_ota_v${FW_VERSION}.zip"
+        mv fw/docs/fw_readme.txt .
+        mv fw/scripts/fw_update.bat .
+
+    - name: upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: amiibotool-fw-v${{ env.FW_VERSION }}
+        path: |
+          bootloader.hex
+          pixljs.hex
+          pixljs_all.hex
+          pixjs_ota_v${{ env.FW_VERSION }}.zip
+          fw_readme.txt
+          fw_update.bat
